@@ -13,14 +13,14 @@ def resource_path(relative_path):
         return os.path.join(sys._MEIPASS, relative_path)
     return os.path.join(os.path.abspath("."), relative_path)
 
-# Tải ảnh từ thư mục phụ kiện
+# Tải ảnh từ thư mục phụ kiện, trả về danh sách (filename, image)
 def load_images(folder):
     images = []
     for f in sorted(os.listdir(folder)):
         if f.endswith('.png'):
             img = cv2.imread(os.path.join(folder, f), cv2.IMREAD_UNCHANGED)
             if img is not None:
-                images.append(img)
+                images.append((f, img))  # Lưu cả tên file và ảnh
     print(f"✅ Loaded {len(images)} images from {folder}")
     return images
 
@@ -63,7 +63,7 @@ def overlay_transparent(background, overlay, x, y, scale=1):
         )
     return background
 
-# Load phụ kiện từ đường dẫn resource
+# Load phụ kiện từ đường dẫn resource (trả về danh sách (filename, image))
 hats = load_images(resource_path("assets/hats"))
 bows = load_images(resource_path("assets/bows"))
 candies = load_images(resource_path("assets/candies"))
@@ -110,6 +110,7 @@ while True:
         face = results.multi_face_landmarks[0]
         landmarks = face.landmark
 
+        # Vị trí phụ kiện
         x_hat = int(landmarks[10].x * w) - 169
         y_hat = int(landmarks[10].y * h) - 190
 
@@ -119,14 +120,27 @@ while True:
         x_candy = int(landmarks[13].x * w) - 30
         y_candy = int(landmarks[13].y * h) - 10
 
-        x_beard = int(landmarks[13].x * w) - 50
+        # Xử lý beard2 đặc biệt
+        beard_name, beard_img = beards[beard_idx]
+        if 'beard2.png' in beard_name:
+            x_beard = int(landmarks[13].x * w) - 80
+        else:
+            x_beard = int(landmarks[13].x * w) - 50
+
         y_beard = int(landmarks[13].y * h) - 60
 
-        frame = overlay_transparent(frame, hats[hat_idx], x_hat, y_hat, scale=1.4)
-        frame = overlay_transparent(frame, bows[bow_idx], x_bow, y_bow, scale=1.0)
-        frame = overlay_transparent(frame, candies[candy_idx], x_candy, y_candy, scale=0.5)
-        frame = overlay_transparent(frame, beards[beard_idx], x_beard, y_beard, scale=0.5)
+        # Lấy ảnh tương ứng
+        hat_name, hat_img = hats[hat_idx]
+        bow_name, bow_img = bows[bow_idx]
+        candy_name, candy_img = candies[candy_idx]
 
+        # Overlay các phụ kiện
+        frame = overlay_transparent(frame, hat_img, x_hat, y_hat, scale=1.4)
+        frame = overlay_transparent(frame, bow_img, x_bow, y_bow, scale=1.0)
+        frame = overlay_transparent(frame, candy_img, x_candy, y_candy, scale=0.5)
+        frame = overlay_transparent(frame, beard_img, x_beard, y_beard, scale=0.5)
+
+    # Đổi phụ kiện mỗi khoảng thời gian
     if time.time() - last_switch > interval:
         hat_idx = random.randint(0, len(hats) - 1)
         bow_idx = random.randint(0, len(bows) - 1)
